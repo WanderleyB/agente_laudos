@@ -10,7 +10,8 @@ import json
 import zipfile
 from datetime import datetime
 
-client = OpenAI(api_key="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")
+import os
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 app = FastAPI()
 
@@ -188,3 +189,6 @@ async def baixar_todos_os_laudos():
             if nome.endswith(".pdf") and os.path.isfile(caminho):
                 zipf.write(caminho, arcname=nome)
     return FileResponse(zip_path, filename="laudos_gerados.zip", media_type="application/zip")
+@app.get("/")
+def root():
+    return {"status": "online", "mensagem": "API Agente Laudos está ativa!"}
