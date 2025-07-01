@@ -5,3 +5,4 @@ openai
 pdfkit
 python-multipart
 aiofiles
+gunicorn
