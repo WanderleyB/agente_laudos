@@ -50,8 +50,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function 
       chatBox.appendChild(resultadoContainer);
 
       if (data.pdf_gerado) {
-        const backendBase = window.location.origin.replace(":5500", ":8000");
-        const pdfLink = `${backendBase}${data.pdf_gerado}`;
+        const pdfLink = `https://agente-laudos.onrender.com${data.pdf_gerado}`;
         chatBox.innerHTML += `
           <div class="bot-message">
             <a href="${pdfLink}" target="_blank" class="download-link">
@@ -60,6 +59,8 @@ document.getElementById('uploadForm').addEventListener('submit', async function 
           </div>
         `;
       }
+
+      salvarHistorico(file.name, htmlBruto);
 
     } catch (err) {
       document.getElementById(`loading-${i}`)?.remove();
@@ -147,9 +148,11 @@ function carregarHistoricoSalvo() {
     appendMessage(formatarHTML(item.texto), "bot", true);
   }
 }
+
+// Botão de baixar todos os PDFs
 document.getElementById("baixarTodos").addEventListener("click", () => {
-      const link = document.createElement("a");
-      link.href = "http://localhost:8000/baixar-todos/";
-      link.download = "laudos_gerados.zip";
-      link.click();
-    });
+  const link = document.createElement("a");
+  link.href = "https://agente-laudos.onrender.com/baixar-todos/";
+  link.download = "laudos_gerados.zip";
+  link.click();
+});
