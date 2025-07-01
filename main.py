@@ -10,11 +10,11 @@ import json
 import zipfile
 from datetime import datetime
 
-import os
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 app = FastAPI()
 
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,6 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Diretórios
 LOGS_DIR = "logs"
 PDFS_DIR = "laudos_analisados"
 MAX_FILE_SIZE = 5 * 1024 * 1024
@@ -30,7 +31,11 @@ MAX_FILE_SIZE = 5 * 1024 * 1024
 os.makedirs(LOGS_DIR, exist_ok=True)
 os.makedirs(PDFS_DIR, exist_ok=True)
 
+# Servir PDFs analisados
 app.mount("/laudos", StaticFiles(directory=PDFS_DIR), name="laudos")
+
+# Servir o site
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
 
 def validar_tamanho_arquivo(file: UploadFile):
@@ -121,11 +126,8 @@ async def analisar_laudo(file: UploadFile = File(...)):
 Você é um médico especialista em medicina ocupacional. Analise o conteúdo do laudo abaixo e gere uma resposta com o seguinte formato, usando exatamente esta estrutura:
 
 📄 Paciente: [NOME DO PACIENTE]
-
 📅 Data do Exame: [DATA]
-
 🧪 Exame: [TIPO DE EXAME]
-
 📊 Resultados:
 [Parâmetro 1]: [Valor] → ✅ Normal  
 [Parâmetro 2]: [Valor] → ✅ Normal  
@@ -135,12 +137,10 @@ Você é um médico especialista em medicina ocupacional. Analise o conteúdo do
 [Texto explicativo claro sobre os resultados laboratoriais e o estado de saúde do paciente]
 
 🧾 Conclusão Médica:
-
 Paciente [Apto/Inapto] para atividades laborais.  
 [Comentário médico, se necessário.]
 
 📌 **Status geral:** [Apto/Inapto para o trabalho] [🟢 ou 🔴]
-
 ⚠️ Instruções importantes:
 - Utilize apenas texto puro (sem HTML, sem Markdown)
 - Mantenha espaçamento claro entre blocos
@@ -189,6 +189,8 @@ async def baixar_todos_os_laudos():
             if nome.endswith(".pdf") and os.path.isfile(caminho):
                 zipf.write(caminho, arcname=nome)
     return FileResponse(zip_path, filename="laudos_gerados.zip", media_type="application/zip")
-@app.get("/")
+
+
+@app.get("/api-status")
 def root():
     return {"status": "online", "mensagem": "API Agente Laudos está ativa!"}
