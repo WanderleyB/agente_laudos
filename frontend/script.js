@@ -29,7 +29,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function 
     formData.append("file", file);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/analisar-laudo/", {
+      const response = await fetch("https://agente-laudos.onrender.com/analisar-laudo/", {
         method: "POST",
         body: formData
       });
@@ -147,3 +147,9 @@ function carregarHistoricoSalvo() {
     appendMessage(formatarHTML(item.texto), "bot", true);
   }
 }
+document.getElementById("baixarTodos").addEventListener("click", () => {
+      const link = document.createElement("a");
+      link.href = "http://localhost:8000/baixar-todos/";
+      link.download = "laudos_gerados.zip";
+      link.click();
+    });
