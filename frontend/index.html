@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chat Médico – Super Seg</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="logo-container">
+    <img src="/img/logo_super_seg.png" alt="Super Seg" class="logo" />
+  </div>
+
+  <div class="chat-wrapper">
+    <div class="chat-card">
+      <div class="chat-header">
+        <div class="header-icon">🩺</div>
+        <div class="header-title">Chat Médico – Super Seg</div>
+      </div>
+
+      <div class="chat-box" id="chatBox">
+        <div class="bot-message">
+          <div class="avatar">🤖</div>
+          <div class="message-content">
+            👨‍⚕️ Olá! Envie um laudo médico em PDF e eu farei a análise para você.
+            <div class="timestamp">Agora</div>
+          </div>
+        </div>
+      </div>
+
+      <form id="uploadForm" class="upload-form">
+        <input type="file" id="laudo_pdf" accept="application/pdf" multiple>
+        <button type="submit">📤 Enviar PDF</button>
+      </form>
+
+      <div class="footer-actions">
+        <button id="limparHistorico">🗑️ Limpar histórico</button>
+        <button id="baixarTodos">📥 Baixar todos os laudos</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

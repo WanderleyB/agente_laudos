@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: agente-laudos
+    runtime: python
+    buildCommand: ""
+    startCommand: uvicorn main:app --host 0.0.0.0 --port 10000
+    envVars:
+      - key: OPENAI_API_KEY
+        value: sk-proj-10kmqW3Nohfg6NcBI9moTz0ApjUaHncunigH4wQ1w8JUkuUpiHQI2tX5gQbz26s5Au1Lj9ttGZT3BlbkFJ6alHJ9a6FvJ8iN4jND8MGvBRfXY3PnXy39ydV-Ad57kd4is66PaSa65xdvwVg4RFXzC6bVoIAAl
+    plan: free
+    region: oregon
