@@ -36,10 +36,6 @@ MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 os.makedirs(LOGS_DIR, exist_ok=True)
 os.makedirs(PDFS_DIR, exist_ok=True)
 
-# Servir PDFs analisados e o frontend
-app.mount("/laudos", StaticFiles(directory=PDFS_DIR), name="laudos")
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
-
 # Utilitários
 def validar_tamanho_arquivo(file: UploadFile):
     file.file.seek(0, os.SEEK_END)
@@ -106,8 +102,8 @@ def gerar_pdf(texto, output_path):
     """
     pdfkit.from_string(html, output_path, configuration=config)
 
-# Endpoint para análise
-@app.post("/analisar-laudo")
+# ------------------ ROTAS PRINCIPAIS ------------------
+
 @app.post("/analisar-laudo/")
 async def analisar_laudo(file: UploadFile = File(...)):
     if not file.filename.endswith(".pdf"):
@@ -179,7 +175,6 @@ Laudo:
         if os.path.exists(temp_filename):
             os.remove(temp_filename)
 
-# Endpoint para baixar todos os laudos
 @app.get("/baixar-todos/")
 async def baixar_todos_os_laudos():
     zip_path = os.path.join(PDFS_DIR, "laudos_gerados.zip")
@@ -190,7 +185,12 @@ async def baixar_todos_os_laudos():
                 zipf.write(caminho, arcname=nome)
     return FileResponse(zip_path, filename="laudos_gerados.zip", media_type="application/zip")
 
-# Health check
 @app.get("/api-status")
 def root():
     return {"status": "online", "mensagem": "API Agente Laudos está ativa!"}
+
+# ------------------ MONTAGEM FINAL DO FRONTEND ------------------
+
+# Servir PDFs analisados e frontend depois das rotas principais
+app.mount("/laudos", StaticFiles(directory=PDFS_DIR), name="laudos")
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
