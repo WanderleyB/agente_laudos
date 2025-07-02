@@ -35,7 +35,7 @@ os.makedirs(PDFS_DIR, exist_ok=True)
 app.mount("/laudos", StaticFiles(directory=PDFS_DIR), name="laudos")
 
 # Servir o site
-app.mount("/app", StaticFiles(directory="frontend", html=True), name="frontend")
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
 
 def validar_tamanho_arquivo(file: UploadFile):
