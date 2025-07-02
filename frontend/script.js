@@ -29,7 +29,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function 
     formData.append("file", file);
 
     try {
-      const response = await fetch("https://agente-laudos.onrender.com/analisar-laudo/", {
+      const response = await fetch("https://agente-laudos.onrender.com", {
         method: "POST",
         body: formData
       });
