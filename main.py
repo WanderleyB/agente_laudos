@@ -10,11 +10,16 @@ import json
 import zipfile
 from datetime import datetime
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Verificação da variável de ambiente
+openai_key = os.getenv("OPENAI_API_KEY")
+if not openai_key:
+    raise RuntimeError("A variável de ambiente OPENAI_API_KEY não está definida.")
+
+client = OpenAI(api_key=openai_key)
 
 app = FastAPI()
 
-# CORS
+# Middleware CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -26,25 +31,22 @@ app.add_middleware(
 # Diretórios
 LOGS_DIR = "logs"
 PDFS_DIR = "laudos_analisados"
-MAX_FILE_SIZE = 5 * 1024 * 1024
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 os.makedirs(LOGS_DIR, exist_ok=True)
 os.makedirs(PDFS_DIR, exist_ok=True)
 
-# Servir PDFs analisados
+# Servir PDFs analisados e o frontend
 app.mount("/laudos", StaticFiles(directory=PDFS_DIR), name="laudos")
-
-# Servir o site
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
-
+# Utilitários
 def validar_tamanho_arquivo(file: UploadFile):
     file.file.seek(0, os.SEEK_END)
     tamanho = file.file.tell()
     file.file.seek(0)
     if tamanho > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="Arquivo muito grande. Máximo permitido: 5MB.")
-
 
 def ler_pdf(file_path):
     try:
@@ -58,17 +60,14 @@ def ler_pdf(file_path):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao ler o PDF: {str(e)}")
 
-
 def salvar_log(dados):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_filename = os.path.join(LOGS_DIR, f"laudo_{timestamp}.json")
     with open(log_filename, "w", encoding="utf-8") as f:
         json.dump(dados, f, ensure_ascii=False, indent=4)
 
-
 def gerar_pdf(texto, output_path):
-    config = pdfkit.configuration(wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe')
-
+    config = pdfkit.configuration(wkhtmltopdf="/usr/bin/wkhtmltopdf")
     texto_colorido = (
         texto.replace("✅", '<span style="color:green;">✅</span>')
              .replace("🟢", '<span style="color:green;">🟢</span>')
@@ -107,15 +106,16 @@ def gerar_pdf(texto, output_path):
     """
     pdfkit.from_string(html, output_path, configuration=config)
 
-
+# Endpoint para análise
+@app.post("/analisar-laudo")
 @app.post("/analisar-laudo/")
 async def analisar_laudo(file: UploadFile = File(...)):
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Arquivo enviado não é um PDF.")
 
     validar_tamanho_arquivo(file)
-
     temp_filename = f"temp_{file.filename}"
+
     try:
         with open(temp_filename, "wb") as buffer:
             buffer.write(await file.read())
@@ -179,7 +179,7 @@ Laudo:
         if os.path.exists(temp_filename):
             os.remove(temp_filename)
 
-
+# Endpoint para baixar todos os laudos
 @app.get("/baixar-todos/")
 async def baixar_todos_os_laudos():
     zip_path = os.path.join(PDFS_DIR, "laudos_gerados.zip")
@@ -190,7 +190,7 @@ async def baixar_todos_os_laudos():
                 zipf.write(caminho, arcname=nome)
     return FileResponse(zip_path, filename="laudos_gerados.zip", media_type="application/zip")
 
-
+# Health check
 @app.get("/api-status")
 def root():
     return {"status": "online", "mensagem": "API Agente Laudos está ativa!"}
