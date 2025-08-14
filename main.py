@@ -1,6 +1,6 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, RedirectResponse  # <-- + RedirectResponse
 from fastapi.staticfiles import StaticFiles
 import pdfplumber
 from openai import OpenAI
@@ -28,7 +28,7 @@ app.add_middleware(
 
 LOGS_DIR = "logs"
 PDFS_DIR = "laudos_analisados"
-MAX_FILE_SIZE = 5 * 1024 * 1024  
+MAX_FILE_SIZE = 5 * 1024 * 1024
 
 os.makedirs(LOGS_DIR, exist_ok=True)
 os.makedirs(PDFS_DIR, exist_ok=True)
@@ -45,7 +45,7 @@ def ler_pdf(file_path):
         texto = ""
         with pdfplumber.open(file_path) as pdf:
             for pagina in pdf.pages:
-                texto += pagina.extract_text() + "\n"
+                texto += (pagina.extract_text() or "") + "\n"
         if not texto.strip():
             raise ValueError("PDF sem texto detectável.")
         return texto
@@ -98,7 +98,6 @@ def gerar_pdf(texto, output_path):
     """
     pdfkit.from_string(html, output_path, configuration=config)
 
-
 @app.post("/analisar-laudo/")
 async def analisar_laudo(file: UploadFile = File(...)):
     if not file.filename.endswith(".pdf"):
@@ -139,9 +138,7 @@ Paciente [Apto/Inapto] para atividades laborais.
 - Coloque o **status geral apenas no final** do texto
 
 Laudo:
-\"\"\"{texto_pdf}\"\"\"
-"""
-
+\"\"\"{texto_pdf}\"\"\""""
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
@@ -181,9 +178,14 @@ async def baixar_todos_os_laudos():
     return FileResponse(zip_path, filename="laudos_gerados.zip", media_type="application/zip")
 
 @app.get("/api-status")
-def root():
+def api_status():
     return {"status": "online", "mensagem": "API Agente Laudos está ativa!"}
 
+# >>> Redireciona raiz para login.html (precisa vir ANTES dos mounts) <<<
+@app.get("/", include_in_schema=False)
+async def root_to_login():
+    return RedirectResponse(url="/login.html")
 
+# Static files
 app.mount("/laudos", StaticFiles(directory=PDFS_DIR), name="laudos")
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
