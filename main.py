@@ -10,7 +10,6 @@ import json
 import zipfile
 from datetime import datetime
 
-# Verificação da variável de ambiente
 openai_key = os.getenv("OPENAI_API_KEY")
 if not openai_key:
     raise RuntimeError("A variável de ambiente OPENAI_API_KEY não está definida.")
@@ -19,7 +18,6 @@ client = OpenAI(api_key=openai_key)
 
 app = FastAPI()
 
-# Middleware CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,15 +26,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Diretórios
 LOGS_DIR = "logs"
 PDFS_DIR = "laudos_analisados"
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+MAX_FILE_SIZE = 5 * 1024 * 1024  
 
 os.makedirs(LOGS_DIR, exist_ok=True)
 os.makedirs(PDFS_DIR, exist_ok=True)
 
-# Utilitários
 def validar_tamanho_arquivo(file: UploadFile):
     file.file.seek(0, os.SEEK_END)
     tamanho = file.file.tell()
@@ -102,7 +98,6 @@ def gerar_pdf(texto, output_path):
     """
     pdfkit.from_string(html, output_path, configuration=config)
 
-# ------------------ ROTAS PRINCIPAIS ------------------
 
 @app.post("/analisar-laudo/")
 async def analisar_laudo(file: UploadFile = File(...)):
@@ -189,8 +184,6 @@ async def baixar_todos_os_laudos():
 def root():
     return {"status": "online", "mensagem": "API Agente Laudos está ativa!"}
 
-# ------------------ MONTAGEM FINAL DO FRONTEND ------------------
 
-# Servir PDFs analisados e frontend depois das rotas principais
 app.mount("/laudos", StaticFiles(directory=PDFS_DIR), name="laudos")
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

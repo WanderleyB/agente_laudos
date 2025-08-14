@@ -1,10 +1,69 @@
 // script.js com suporte a múltiplos laudos, loading animado e histórico local
+// + LOG por usuário no Firestore em: /usuarios/{username}/auditoria/{logId}
+//   Campos salvos: { texto: "analisou HH:MM DD/MM/YYYY", conteudo, arquivo, createdAt }
 
-// Inicialização do histórico
+// ====== Firebase (apenas para registrar uso por usuário) ======
+let __fb = null; // cache
+
+async function ensureFirebase() {
+  if (__fb) return __fb;
+
+  // imports dinâmicos (funciona mesmo com <script> normal)
+  const appMod = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+  const fsMod  = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+
+  // mesmo config do seu projeto
+  const firebaseConfig = {
+    apiKey: "AIzaSyAwNAOHk_w5YuLS109ZJHbEBhUDCdTjO0A",
+    authDomain: "agentlaudos.firebaseapp.com",
+    projectId: "agentlaudos",
+    storageBucket: "agentlaudos.appspot.com",
+    messagingSenderId: "725949737314",
+    appId: "1:725949737314:web:7e2e37a0be10386bf5e43b",
+  };
+
+  const app = appMod.getApps().length ? appMod.getApp() : appMod.initializeApp(firebaseConfig);
+  const db  = fsMod.getFirestore(app);
+
+  __fb = {
+    db,
+    addDoc: fsMod.addDoc,
+    collection: fsMod.collection,
+    serverTimestamp: fsMod.serverTimestamp
+  };
+  return __fb;
+}
+
+function timestampBR() {
+  const tz = "America/Sao_Paulo";
+  const d = new Date();
+  const hora = d.toLocaleTimeString("pt-BR", { timeZone: tz, hour: "2-digit", minute: "2-digit" });
+  const data = d.toLocaleDateString("pt-BR", { timeZone: tz });
+  return `${hora} ${data}`;
+}
+
+// Cria um doc em /usuarios/{username}/auditoria com o conteúdo analisado
+async function registrarUsoPorUsuario(conteudo, arquivo) {
+  try {
+    const fb = await ensureFirebase();
+    const username = (localStorage.getItem("username") || "desconhecido").toLowerCase();
+    const col = fb.collection(fb.db, "usuarios", username, "auditoria");
+    await fb.addDoc(col, {
+      texto: `analisou ${timestampBR()}`,
+      conteudo: String(conteudo || ""),
+      arquivo: arquivo || null,
+      createdAt: fb.serverTimestamp()
+    });
+  } catch (e) {
+    console.warn("Falha ao registrar uso no Firestore (/usuarios/{user}/auditoria):", e);
+  }
+}
+
+// ====== Inicialização do histórico ======
 const historicoKey = "historicoLaudos";
 carregarHistoricoSalvo();
 
-// Submissão do formulário
+// ====== Submissão do formulário ======
 document.getElementById('uploadForm').addEventListener('submit', async function (e) {
   e.preventDefault();
 
@@ -21,7 +80,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function 
     const file = files[i];
 
     // Mostra nome do laudo sendo enviado
-    chatBox.innerHTML += `<div class="user-message">📄 Enviando: ${file.name}</div>`;
+    chatBox.innerHTML += `<div class="user-message">📄 Enviando: ${escapeHtml(file.name)}</div>`;
     chatBox.innerHTML += `<div class="loading-message" id="loading-${i}">⏳ Analisando o laudo</div>`;
     chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -40,9 +99,9 @@ document.getElementById('uploadForm').addEventListener('submit', async function 
       }
 
       const data = await response.json();
-      document.getElementById(`loading-${i}`).remove();
+      document.getElementById(`loading-${i}`)?.remove();
 
-      const htmlBruto = data.html.replace(/```html|```/g, "").trim();
+      const htmlBruto = (data.html || "").replace(/```html|```/g, "").trim();
 
       const resultadoContainer = document.createElement("div");
       resultadoContainer.className = "bot-message";
@@ -62,16 +121,19 @@ document.getElementById('uploadForm').addEventListener('submit', async function 
 
       salvarHistorico(file.name, htmlBruto);
 
+      // >>> LOG por usuário no Firestore (conteúdo + carimbo simples)
+      await registrarUsoPorUsuario(htmlBruto, file.name);
+
     } catch (err) {
       document.getElementById(`loading-${i}`)?.remove();
-      chatBox.innerHTML += `<div class="bot-message">❌ Erro ao analisar ${file.name}: ${err.message}</div>`;
+      chatBox.innerHTML += `<div class="bot-message">❌ Erro ao analisar ${escapeHtml(file.name)}: ${escapeHtml(err.message)}</div>`;
     }
 
     chatBox.scrollTop = chatBox.scrollHeight;
   }
 });
 
-// Adiciona mensagens ao chat
+// ====== Utilitários de UI ======
 function appendMessage(text, sender = "bot", allowHTML = false) {
   const chatBox = document.getElementById("chatBox");
   const message = document.createElement("div");
@@ -91,7 +153,6 @@ function appendMessage(text, sender = "bot", allowHTML = false) {
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// Adiciona loading com animação
 function appendLoading() {
   const chatBox = document.getElementById("chatBox");
   const loading = document.createElement("div");
@@ -124,7 +185,7 @@ function formatarHTML(texto) {
     .replace(/📌/g, '<br><br>📌');
 }
 
-// Botão limpar histórico visual
+// ====== Histórico local ======
 const limparBtn = document.getElementById("limparHistorico");
 limparBtn.addEventListener('click', () => {
   const chatBox = document.getElementById('chatBox');
@@ -132,7 +193,6 @@ limparBtn.addEventListener('click', () => {
   localStorage.removeItem(historicoKey);
 });
 
-// Salva no localStorage
 function salvarHistorico(arquivo, texto) {
   const dados = JSON.parse(localStorage.getItem(historicoKey) || "[]");
   dados.push({ arquivo, texto, timestamp: new Date().toISOString() });
@@ -149,7 +209,7 @@ function carregarHistoricoSalvo() {
   }
 }
 
-// Botão de baixar todos os PDFs
+// ====== Baixar todos ======
 document.getElementById("baixarTodos").addEventListener("click", () => {
   const link = document.createElement("a");
   link.href = "https://agente-laudos.onrender.com/baixar-todos/";

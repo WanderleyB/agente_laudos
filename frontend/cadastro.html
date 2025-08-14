@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cadastro — Agente Laudos</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <style>
+    .login-body { min-height: 100vh; }
+    .card { padding: 18px 16px 16px; }
+    .form { display:flex; flex-direction:column; gap:14px; padding:16px; background:#f0f8ff; border-top:1px solid #e5e5e5; }
+    .form-row { display:flex; flex-direction:column; gap:6px; }
+    .label { font-size:.9rem; color:#374151; font-weight:600; }
+    .input { width:100%; border:1px solid #d1d5db; border-radius:10px; padding:10px 12px; font-size:.95rem; background:#fff; outline:none; transition:box-shadow .2s, border-color .2s; }
+    .input:focus { border-color:#0275d8; box-shadow:0 0 0 3px rgba(2,117,216,.15); }
+    .actions { display:flex; gap:10px; align-items:center; justify-content:flex-end; padding:0 16px 16px; }
+    .btn { background:#0275d8; color:#fff; padding:10px 16px; border:none; border-radius:8px; font-weight:700; cursor:pointer; }
+    .btn:hover { background:#025aa5; }
+    .btn:disabled { opacity:.6; cursor:not-allowed; }
+    .link { color:#0275d8; text-decoration:none; font-weight:700; }
+    .error, .success { margin:0 16px; border-radius:10px; padding:10px 12px; font-size:.9rem; border:1px solid; }
+    .error  { background:#fff3cd; color:#856404; border-color:#ffeeba; }
+    .success{ background:#dff0d8; color:#3c763d; border-color:#d6e9c6; }
+  </style>
+</head>
+<body class="login-body">
+  <div class="logo-container">
+    <img class="logo" src="/frontend/img/logo_super_seg.png" alt="Logo">
+  </div>
+
+  <div class="chat-wrapper" style="max-width:460px;">
+    <div class="chat-card card">
+      <div class="chat-header">
+        <span class="header-icon">📝</span>
+        <div class="header-title">Criar conta</div>
+      </div>
+
+      <form id="formCadastro" class="form" autocomplete="off">
+        <div class="form-row">
+          <label class="label" for="nome">Nome de usuário</label>
+          <input id="nome" class="input" type="text" required />
+        </div>
+        <div class="form-row">
+          <label class="label" for="senha">Senha</label>
+          <input id="senha" class="input" type="password" required minlength="4" />
+        </div>
+        <div class="form-row">
+          <label class="label" for="confirma">Confirmar senha</label>
+          <input id="confirma" class="input" type="password" required minlength="4" />
+        </div>
+      </form>
+
+      <div id="msg" style="display:none"></div>
+
+      <div class="actions">
+        <a class="link" href="login.html">Já tenho conta</a>
+        <button id="btnCriar" class="btn" form="formCadastro" type="submit">Criar conta</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // Firebase SDK
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getFirestore, doc, getDoc, setDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // use o MESMO config do seu login
+    const firebaseConfig = {
+      apiKey: "AIzaSyAwNAOHk_w5YuLS109ZJHbEBhUDCdTjO0A",
+      authDomain: "agentlaudos.firebaseapp.com",
+      projectId: "agentlaudos",
+      storageBucket: "agentlaudos.appspot.com",
+      messagingSenderId: "725949737314",
+      appId: "1:725949737314:web:7e2e37a0be10386bf5e43b",
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    const form = document.getElementById('formCadastro');
+    const btn  = document.getElementById('btnCriar');
+    const msg  = document.getElementById('msg');
+    const nome = document.getElementById('nome');
+    const senha= document.getElementById('senha');
+    const confirma = document.getElementById('confirma');
+
+    const REDIRECT = "login.html"; // ou "index.html" se quiser logar automaticamente
+
+    function showMessage(text, type='error') {
+      msg.style.display = 'block';
+      msg.className = type === 'success' ? 'success' : 'error';
+      msg.textContent = text;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.style.display = 'none';
+
+      const username = (nome.value || '').trim().toLowerCase();
+      const pass1 = (senha.value || '').trim();
+      const pass2 = (confirma.value || '').trim();
+
+      if (!username || !pass1) { showMessage('Preencha usuário e senha.'); return; }
+      if (pass1.length < 4) { showMessage('Senha mínima de 4 caracteres.'); return; }
+      if (pass1 !== pass2) { showMessage('As senhas não conferem.'); return; }
+
+      btn.disabled = true; btn.textContent = 'Criando...';
+
+      try {
+        // 1) verifica se já existe
+        const ref = doc(db, "usuarios", username);
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          showMessage('Esse usuário já existe. Tente outro.');
+          return;
+        }
+
+        // 2) cria o documento do usuário
+        await setDoc(ref, {
+          senha: pass1,       // simples (DEV). Em produção use Auth.
+          ativo: true,
+          criadoEm: serverTimestamp()
+        });
+
+        // 3) feedback + redirecionar
+        showMessage('Conta criada com sucesso! Redirecionando...', 'success');
+        setTimeout(() => { window.location.href = REDIRECT; }, 800);
+
+      } catch (err) {
+        console.error(err);
+        showMessage('Falha ao criar conta. Verifique as regras do Firestore.');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Criar conta';
+      }
+    });
+  </script>
+</body>
+</html>

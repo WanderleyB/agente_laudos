@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login — Agente Laudos</title>
+
+  <link rel="stylesheet" href="style.css">
+
+  <style>
+    .login-body { min-height: 100vh; }
+    .login-card { padding: 18px 16px 16px; }
+    .link { color:#0275d8; text-decoration:none; font-weight:700; }
+.link:hover { text-decoration:underline; }
+
+
+    .form {
+      display: flex; flex-direction: column; gap: 14px;
+      padding: 16px; background: #f0f8ff; border-top: 1px solid #e5e5e5;
+    }
+    .form-row { display: flex; flex-direction: column; gap: 6px; }
+    .label { font-size: .9rem; color: #374151; font-weight: 600; }
+
+    .input {
+      width: 100%; border: 1px solid #d1d5db; border-radius: 10px;
+      padding: 10px 12px; font-size: 0.95rem; background: #fff; outline: none;
+      transition: box-shadow .2s, border-color .2s;
+    }
+    .input:focus { border-color: #0275d8; box-shadow: 0 0 0 3px rgba(2,117,216,.15); }
+
+    .password-wrap { position: relative; display: flex; align-items: center; }
+    .toggle-pass {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      border: none; background: transparent; color: #0275d8; font-weight: 600; cursor: pointer;
+    }
+
+    .actions { display: flex; gap: 10px; align-items: center; justify-content: flex-end; padding: 0 16px 16px; }
+    .btn { background: #0275d8; color: #fff; padding: 10px 16px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; transition: background .3s; }
+    .btn:hover { background: #025aa5; }
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+
+    .hint { padding: 8px 16px 16px; color: #6b7280; font-size: .85rem; }
+
+    .error, .success {
+      margin: 0 16px; border-radius: 10px; padding: 10px 12px; font-size: .9rem;
+      border: 1px solid;
+    }
+    .error  { background: #fff3cd; color: #856404; border-color: #ffeeba; }
+    .success{ background: #dff0d8; color: #3c763d; border-color: #d6e9c6; }
+  </style>
+</head>
+
+<body class="login-body">
+  <div class="logo-container">
+    <img class="logo" src="/frontend/img/logo_super_seg.png" alt="Logo">
+  </div>
+
+  <div class="chat-wrapper" style="max-width: 460px;">
+    <div class="chat-card login-card">
+      <div class="chat-header">
+        <span class="header-icon">🔐</span>
+        <div class="header-title">Acesso ao Agente de Laudos</div>
+      </div>
+
+      <form id="loginForm" class="form" autocomplete="on">
+        <div class="form-row">
+          <label class="label" for="nome">Nome</label>
+          <input id="nome" name="nome" class="input" type="text" required />
+        </div>
+
+        <div class="form-row">
+          <label class="label" for="senha">Senha</label>
+          <div class="password-wrap">
+            <input id="senha" name="senha" class="input" type="password" placeholder="••••••••" required />
+            <button type="button" class="toggle-pass" id="togglePass">mostrar</button>
+          </div>
+        </div>
+      </form>
+
+      <div id="msg" style="display:none"></div>
+
+     <div class="actions">
+  <a class="link" href="cadastro.html">Criar conta</a>
+  <button id="btnLogin" class="btn" form="loginForm" type="submit">Entrar</button>
+</div>
+    </div>
+  </div>
+
+  <script type="module">
+    // Alerta se abrir via file://
+    if (location.protocol === 'file:') {
+      console.warn('Abra via http(s). Ex.: "python -m http.server" ou "npx serve".');
+    }
+
+    // Firebase SDK
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // Config do seu projeto (corrigido)
+    const firebaseConfig = {
+      apiKey: "AIzaSyAwNAOHk_w5YuLS109ZJHbEBhUDCdTjO0A",
+      authDomain: "agentlaudos.firebaseapp.com",
+      projectId: "agentlaudos",
+      storageBucket: "agentlaudos.appspot.com",
+      messagingSenderId: "725949737314",
+      appId: "1:725949737314:web:7e2e37a0be10386bf5e43b",
+    };
+
+    // Inicializa Firebase
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    const REDIRECT_AFTER_LOGIN = new URLSearchParams(location.search).get('redirect') || '/';
+
+    // Elementos
+    const form = document.getElementById('loginForm');
+    const btn  = document.getElementById('btnLogin');
+    const msg  = document.getElementById('msg');
+    const nome = document.getElementById('nome');
+    const senha= document.getElementById('senha');
+    const togglePass = document.getElementById('togglePass');
+
+    // Mostrar/ocultar senha
+    togglePass.addEventListener('click', () => {
+      const isPwd = senha.type === 'password';
+      senha.type = isPwd ? 'text' : 'password';
+      togglePass.textContent = isPwd ? 'ocultar' : 'mostrar';
+      senha.focus();
+    });
+
+    function showMessage(text, type='error') {
+      msg.style.display = 'block';
+      msg.className = type === 'success' ? 'success' : 'error';
+      msg.textContent = text;
+    }
+
+    // Tenta buscar por 2 IDs: o digitado e o .toLowerCase() (ajuda na migração)
+    async function getUserDoc(usernameRaw) {
+      const candidates = [usernameRaw, usernameRaw.toLowerCase()];
+      for (const id of candidates) {
+        const snap = await getDoc(doc(db, "usuarios", id));
+        if (snap.exists()) return { id, data: snap.data() };
+      }
+      return null;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.style.display = 'none';
+
+      const usernameRaw = (nome.value || '').trim();
+      const password    = (senha.value || '').trim();
+
+      if (!usernameRaw || !password) {
+        showMessage('Informe o nome e a senha.');
+        return;
+      }
+
+      btn.disabled = true; btn.textContent = 'Entrando...';
+
+      try {
+        const result = await getUserDoc(usernameRaw);
+        if (!result) {
+          showMessage('Usuário não encontrado.');
+          return;
+        }
+
+        const { id, data } = result;
+
+        if (data.ativo !== true) {
+          showMessage('Usuário inativo. Fale com o administrador.');
+          return;
+        }
+
+        if (String(data.senha) !== password) {
+          showMessage('Senha inválida.');
+          return;
+        }
+
+        // Sucesso
+        const tokenFake = `local-${crypto.randomUUID()}`;
+        localStorage.setItem('authToken', tokenFake);
+        localStorage.setItem('username', id);
+
+        showMessage('Login realizado com sucesso!', 'success');
+        setTimeout(() => { window.location.href = 'index.html'; }, 500);
+
+      } catch (err) {
+        console.error(err);
+        const code = err?.code || '';
+        if (code === 'permission-denied') {
+          showMessage('Acesso ao Firestore bloqueado pelas regras. Em DEV, abra as regras para leitura.', 'error');
+        } else {
+          showMessage('Erro ao autenticar. Tente novamente.', 'error');
+        }
+      } finally {
+        btn.disabled = false; btn.textContent = 'Entrar';
+      }
+    });
+
+    // Helper para outras páginas
+    window.getAuthHeaders = function () {
+      const t = localStorage.getItem('authToken');
+      return t ? { 'Authorization': t } : {};
+    };
+  </script>
+</body>
+</html>
